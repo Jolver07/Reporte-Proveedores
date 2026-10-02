@@ -6,7 +6,7 @@
 
   // Página del reporte (index.html, _headers, robots.txt)
   "assets": {
-    "directory": "./public",
+    "directory": "./reporte-proveedores-worker/public",
     "binding": "ASSETS"
   },
 
