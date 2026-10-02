@@ -1,0 +1,35 @@
+{
+  // Nombre del Worker: debe coincidir con el que ya tienes en Cloudflare
+  "name": "reporte-proveedores",
+  "main": "src/worker.js",
+  "compatibility_date": "2025-07-18",
+
+  // Página del reporte (index.html, _headers, robots.txt)
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS"
+  },
+
+  // Almacén donde se guardan los datos publicados.
+  // Reemplaza PEGA_AQUI_EL_ID_DEL_KV por el ID del namespace que crees en Cloudflare.
+  "kv_namespaces": [
+    { "binding": "REPORTE", "id": "PEGA_AQUI_EL_ID_DEL_KV" }
+  ],
+
+  // La clave de carga NO va aquí: se crea como secreto UPLOAD_TOKEN
+  // en Settings → Variables and Secrets del Worker.
+
+  "observability": {
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1,
+      "invocation_logs": true,
+      "persist": true
+    },
+    "traces": {
+      "enabled": false,
+      "head_sampling_rate": 1,
+      "persist": true
+    }
+  }
+}
