@@ -81,7 +81,7 @@ tfoot td{font-weight:700;border-top:2px solid var(--ink);border-bottom:0;backgro
 .drop .btn[hidden],.src .btn[hidden]{display:none}
 .msg{margin-top:12px;font-size:13px}
 .msg.err{color:var(--warn)}
-#app[hidden],.drop[hidden],.src[hidden]{display:none}
+#app[hidden],.drop[hidden],.src[hidden],.f[hidden]{display:none}
 .vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 @media (prefers-reduced-motion:reduce){.meter i,.toast{transition:none}}
 </style>
@@ -122,6 +122,7 @@ tfoot td{font-weight:700;border-top:2px solid var(--ink);border-bottom:0;backgro
 <div class="f"><label for="fComp">Compañía</label><select id="fComp"></select></div>
 <div class="f"><label for="fTerm">Forma de pago</label><select id="fTerm"></select></div>
 <div class="f"><label for="fCat">Categoría</label><select id="fCat"></select></div>
+<div class="f" id="fTipoBox"><label for="fTipo">Tipo de solicitud</label><select id="fTipo"></select></div>
 <div class="f"><label for="fConv">Convenio</label><select id="fConv"><option value="">Todos</option><option value="1">Con convenio</option><option value="0">Sin convenio</option></select></div>
 <div class="f"><label for="fBuyer">Comprador(a)</label><select id="fBuyer"></select></div>
 <div class="f"><label for="fSearch">Buscar proveedor u OC</label><input type="search" id="fSearch" placeholder="Nombre, OC o cotización"></div>
@@ -151,8 +152,8 @@ tfoot td{font-weight:700;border-top:2px solid var(--ink);border-bottom:0;backgro
 
 <script>
 (function(){
-let D={prov:[],term:[],comp:[],cat:[],estado:[],comprador:[]},R=[];
-// row: 0 fecha,1 oc,2 prov,3 term,4 comp,5 estado,6 cat,7 conv,8 cot,9 sub,10 ejec,11 n,12 comprador
+let D={prov:[],term:[],comp:[],cat:[],estado:[],comprador:[],tipo:[]},R=[];
+// row: 0 fecha,1 oc,2 prov,3 term,4 comp,5 estado,6 cat,7 conv,8 cot,9 sub,10 ejec,11 n,12 comprador,13 tipo solicitud
 const $=id=>document.getElementById(id);
 const money=v=>v.toLocaleString('en-US',{style:'currency',currency:'USD',minimumFractionDigits:2,maximumFractionDigits:2});
 const short=v=>Math.abs(v)>=1e6?'$'+(v/1e6).toLocaleString('en-US',{maximumFractionDigits:2})+' M':money(v);
@@ -167,6 +168,8 @@ let minD,maxD;
 function initUI(){
  minD='9999';maxD='0000';for(const r of R){if(r[0]<minD)minD=r[0];if(r[0]>maxD)maxD=r[0];}
  fill($('fComp'),D.comp,'Todas');fill($('fTerm'),D.term,'Todas');fill($('fCat'),D.cat,'Todas');fill($('fBuyer'),D.comprador,'Todos');
+ const hasTipo=Array.isArray(D.tipo)&&D.tipo.length>0&&R.length&&R[0].length>13;
+ fill($('fTipo'),hasTipo?D.tipo:[],'Todos');$('fTipoBox').hidden=!hasTipo;
  $('fConv').value='';$('fSearch').value='';
  est.querySelectorAll('label').forEach(l=>l.remove());
  D.estado.forEach((e,i)=>{const l=document.createElement('label');l.innerHTML='<input type="checkbox" value="'+i+'"'+(/ANULAD/i.test(e)?'':' checked')+'> '+esc(e);est.appendChild(l);});
@@ -191,8 +194,8 @@ function setPressed(b){pres.querySelectorAll('.chip').forEach(c=>c.setAttribute(
 
 // ---------- lectura del archivo ----------
 const norm=s=>String(s==null?'':s).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'');
-const NEED={fecha:'Fecha OC',oc:'OC ERP',prov:'Proveedor',term:'Término de pago',comp:'Compañía',estado:'Estado',cat:'Categoría',conv:'Convenio',cot:'Cotización',sub:'Subtotal',pu:'P.U. Final',ing:'Cant. Ingreso',buyer:'Comprador(a)'};
-const OPTIONAL=new Set(['cot','conv','buyer','cat','comp']);
+const NEED={fecha:'Fecha OC',oc:'OC ERP',prov:'Proveedor',term:'Término de pago',comp:'Compañía',estado:'Estado',cat:'Categoría',conv:'Convenio',cot:'Cotización',sub:'Subtotal',pu:'P.U. Final',ing:'Cant. Ingreso',buyer:'Comprador(a)',tipo:'Tipo Solicitud'};
+const OPTIONAL=new Set(['cot','conv','buyer','cat','comp','tipo']);
 function toISO(v){
  if(v instanceof Date&&!isNaN(v))return iso(v);
  if(typeof v==='number'&&v>20000){const d=new Date(Math.round((v-25569)*864e5));return d.toISOString().slice(0,10);}
@@ -208,7 +211,7 @@ function parseRows(aoa){
  if(hi<0)throw new Error('No encontré las columnas "OC ERP" y "Proveedor". Verifica que sea el reporte de Seguimiento de Solpeds.');
  const missing=Object.keys(NEED).filter(k=>map[k]<0&&!OPTIONAL.has(k)).map(k=>NEED[k]);
  if(missing.length)throw new Error('Faltan columnas: '+missing.join(', ')+'.');
- const g=new Map();const dict={prov:new Map(),term:new Map(),comp:new Map(),cat:new Map(),estado:new Map(),comprador:new Map()};
+ const g=new Map();const dict={prov:new Map(),term:new Map(),comp:new Map(),cat:new Map(),estado:new Map(),comprador:new Map(),tipo:new Map()};
  const id=(name,v)=>{const m=dict[name];if(!m.has(v))m.set(v,m.size);return m.get(v);};
  const get=(row,k)=>map[k]>=0?row[map[k]]:'';
  for(let i=hi+1;i<aoa.length;i++){
@@ -219,7 +222,7 @@ function parseRows(aoa){
   const estado=String(get(row,'estado')||'—').trim(),cot=String(get(row,'cot')||'').trim(),conv=/^s[ií]/i.test(String(get(row,'conv')||''))?1:0;
   const key=oc+'|'+estado+'|'+cot+'|'+conv;
   let r=g.get(key);
-  if(!r){r=[f,oc,id('prov',String(get(row,'prov')||'—').trim()),id('term',term),id('comp',String(get(row,'comp')||'—').trim()),id('estado',estado),id('cat',String(get(row,'cat')||'—').trim()),conv,cot,0,0,0,id('comprador',String(get(row,'buyer')||'—').trim())];g.set(key,r);}
+  if(!r){r=[f,oc,id('prov',String(get(row,'prov')||'—').trim()),id('term',term),id('comp',String(get(row,'comp')||'—').trim()),id('estado',estado),id('cat',String(get(row,'cat')||'—').trim()),conv,cot,0,0,0,id('comprador',String(get(row,'buyer')||'—').trim()),id('tipo',String(get(row,'tipo')||'—').trim())];g.set(key,r);}
   r[9]+=num(get(row,'sub'));r[10]+=num(get(row,'pu'))*num(get(row,'ing'));r[11]++;
  }
  if(!g.size)throw new Error('El archivo no tiene líneas con OC ERP y Fecha OC.');
@@ -227,7 +230,7 @@ function parseRows(aoa){
  const out={};const remap={};
  for(const k in dict){const arr=[...dict[k].keys()];const sorted=[...arr].sort((a,b)=>a.localeCompare(b,'es'));out[k]=sorted;const pos=new Map(sorted.map((v,i)=>[v,i]));remap[k]=arr.map(v=>pos.get(v));}
  const rows=[...g.values()];
- for(const r of rows){r[2]=remap.prov[r[2]];r[3]=remap.term[r[3]];r[4]=remap.comp[r[4]];r[5]=remap.estado[r[5]];r[6]=remap.cat[r[6]];r[12]=remap.comprador[r[12]];r[9]=Math.round(r[9]*100)/100;r[10]=Math.round(r[10]*100)/100;}
+ for(const r of rows){r[2]=remap.prov[r[2]];r[3]=remap.term[r[3]];r[4]=remap.comp[r[4]];r[5]=remap.estado[r[5]];r[6]=remap.cat[r[6]];r[12]=remap.comprador[r[12]];r[13]=remap.tipo[r[13]];r[9]=Math.round(r[9]*100)/100;r[10]=Math.round(r[10]*100)/100;}
  return {d:out,r:rows};
 }
 function showMsg(t,err){const m=$('msg');m.textContent=t;m.className='msg'+(err?' err':'');}
@@ -264,7 +267,7 @@ let view='prov',sortKey=null,sortDir='desc',limit=300,cur={cols:[],rows:[],tot:n
 
 function filtered(){
  const a=$('dFrom').value||'0000',z=$('dTo').value||'9999';
- const comp=$('fComp').value,term=$('fTerm').value,cat=$('fCat').value,conv=$('fConv').value,buyer=$('fBuyer').value;
+ const comp=$('fComp').value,term=$('fTerm').value,cat=$('fCat').value,conv=$('fConv').value,buyer=$('fBuyer').value,tipo=$('fTipo').value;
  const q=$('fSearch').value.trim().toLowerCase();
  const es=new Set([...est.querySelectorAll('input:checked')].map(i=>+i.value));
  const out=[];
@@ -276,6 +279,7 @@ function filtered(){
   if(cat!==''&&r[6]!=cat)continue;
   if(conv!==''&&r[7]!=conv)continue;
   if(buyer!==''&&r[12]!=buyer)continue;
+  if(tipo!==''&&r[13]!=tipo)continue;
   if(q&&!(D.prov[r[2]].toLowerCase().includes(q)||r[1].includes(q)||r[8].toLowerCase().includes(q)))continue;
   out.push(r);
  }
@@ -286,7 +290,7 @@ function filtered(){
 const COLS={
  prov:[['prov','Proveedor','text'],['terms','Forma de pago','text'],['ocs','Nº OC','num'],['sub','Dólares orden de compra','money','c-oc'],['ejec','Dólares ejecutados','money','c-ex'],['pend','Por ejecutar','money'],['pct','% ejecutado','pct']],
  provterm:[['prov','Proveedor','text'],['term','Forma de pago','text'],['ocs','Nº OC','num'],['sub','Dólares orden de compra','money','c-oc'],['ejec','Dólares ejecutados','money','c-ex'],['pend','Por ejecutar','money'],['pct','% ejecutado','pct']],
- oc:[['oc','OC ERP','text'],['fecha','Fecha OC','text'],['prov','Proveedor','text'],['term','Forma de pago','text'],['cot','Cotización','text'],['estado','Estado','text'],['comp','Compañía','text'],['lin','Líneas','num'],['sub','Dólares orden de compra','money','c-oc'],['ejec','Dólares ejecutados','money','c-ex'],['pend','Por ejecutar','money'],['pct','% ejecutado','pct']]
+ oc:[['oc','OC ERP','text'],['fecha','Fecha OC','text'],['prov','Proveedor','text'],['term','Forma de pago','text'],['cot','Cotización','text'],['tipo','Tipo de solicitud','text'],['estado','Estado','text'],['comp','Compañía','text'],['lin','Líneas','num'],['sub','Dólares orden de compra','money','c-oc'],['ejec','Dólares ejecutados','money','c-ex'],['pend','Por ejecutar','money'],['pct','% ejecutado','pct']]
 };
 const DEFAULT_SORT={prov:'sub',provterm:'sub',oc:'fecha'};
 
@@ -309,7 +313,7 @@ function build(rows){
   }
  }else{
   const m=new Map();
-  for(const r of rows){let o=m.get(r[1]);if(!o){o={oc:r[1],fecha:r[0],prov:D.prov[r[2]],term:D.term[r[3]],cotS:new Set(),estS:new Set(),comp:D.comp[r[4]],lin:0,sub:0,ejec:0};m.set(r[1],o);}
+  for(const r of rows){let o=m.get(r[1]);if(!o){o={oc:r[1],fecha:r[0],prov:D.prov[r[2]],term:D.term[r[3]],cotS:new Set(),estS:new Set(),comp:D.comp[r[4]],tipo:(D.tipo&&r[13]!=null)?D.tipo[r[13]]:'',lin:0,sub:0,ejec:0};m.set(r[1],o);}
    if(r[8])o.cotS.add(r[8]);o.estS.add(D.estado[r[5]]);o.lin+=r[11];o.sub+=r[9];o.ejec+=r[10];}
   for(const o of m.values()){o.cot=[...o.cotS].join(', ');o.estado=[...o.estS].join(', ');delete o.cotS;delete o.estS;o.pend=o.sub-o.ejec;o.pct=pctOf(o.ejec,o.sub);out.push(o);}
  }
@@ -368,7 +372,7 @@ function matrix(){
 }
 function filterSummary(){
  const parts=['Fecha OC: '+$('dFrom').value+' a '+$('dTo').value];
- [['fComp','Compañía'],['fTerm','Forma de pago'],['fCat','Categoría'],['fBuyer','Comprador(a)']].forEach(([id,l])=>{const s=$(id);if(s.value!=='')parts.push(l+': '+s.options[s.selectedIndex].text);});
+ [['fComp','Compañía'],['fTerm','Forma de pago'],['fCat','Categoría'],['fTipo','Tipo de solicitud'],['fBuyer','Comprador(a)']].forEach(([id,l])=>{const s=$(id);if(s.value!=='')parts.push(l+': '+s.options[s.selectedIndex].text);});
  if($('fConv').value!=='')parts.push('Convenio: '+$('fConv').options[$('fConv').selectedIndex].text);
  const es=[...est.querySelectorAll('input:checked')].map(i=>D.estado[+i.value]);parts.push('Estados: '+es.join(', '));
  if($('fSearch').value.trim())parts.push('Búsqueda: '+$('fSearch').value.trim());
@@ -414,7 +418,7 @@ function sortBy(th){const k=th.dataset.k;const curK=sortKey||DEFAULT_SORT[view];
 thead.addEventListener('click',e=>{const th=e.target.closest('th');if(th)sortBy(th);});
 thead.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&e.target.matches('th')){e.preventDefault();sortBy(e.target);}});
 $('more').onclick=()=>{limit+=300;render();};
-['fComp','fTerm','fCat','fConv','fBuyer'].forEach(id=>$(id).addEventListener('change',update));
+['fComp','fTerm','fCat','fTipo','fConv','fBuyer'].forEach(id=>$(id).addEventListener('change',update));
 ['dFrom','dTo'].forEach(id=>$(id).addEventListener('change',()=>{setPressed(null);update();}));
 $('fSearch').addEventListener('input',update);
 est.addEventListener('change',update);
