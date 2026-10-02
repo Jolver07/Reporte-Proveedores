@@ -1,7 +1,7 @@
 {
   // Nombre del Worker: debe coincidir con el que ya tienes en Cloudflare
   "name": "reporte-proveedores",
-  "main": "src/worker.js",
+  "main": "worker.js",
   "compatibility_date": "2025-07-18",
 
   // Página del reporte (index.html, _headers, robots.txt)
